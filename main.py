@@ -142,18 +142,22 @@ class KidScannerApp:
 
         self.root.title("Kid Scanner")
         self.root.geometry("800x480")
+        # Force layout to know the real screen size
+        self.root.update_idletasks()
 
-        # Allow toggling fullscreen with F11, exit with Escape.
-        self.root.bind("<F11>", self._toggle_fullscreen)
-        self.root.bind("<Escape>", self._exit_fullscreen)
-
-        # NEW: scale image area based on screen size
         screen_w = self.root.winfo_screenwidth()
         screen_h = self.root.winfo_screenheight()
 
-        # Use up to 80% of width, 40% of height for the image
-        self.img_max_w = int(screen_w * 0.8)
-        self.img_max_h = int(screen_h * 0.4)
+        # Half the screen width for each side
+        self.half_width = screen_w // 2
+
+        # Max image area on the right side
+        self.img_max_w = self.half_width - 20
+        self.img_max_h = int(screen_h * 0.6)
+
+        # Wrap long titles so they don't push layout sideways
+        self.title_wrap = self.half_width - 40
+
         # Build the two main views.
         self._build_scan_view()
         self._build_add_item_view()
@@ -169,27 +173,45 @@ class KidScannerApp:
     # ------------------------------------------------------------------
 
     def _build_scan_view(self) -> None:
-        """Build the main scan/kiosk view with left controls and right image."""
+        """Build the main scan/kiosk view with a 50/50 left/right split."""
         self.scan_frame = tk.Frame(self.root)
         self.scan_frame.pack(fill=tk.BOTH, expand=True)
 
-        # Create two main panels: LEFT (controls) and RIGHT (image)
-        self.left_frame = tk.Frame(self.scan_frame)
-        self.left_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=10, pady=10)
+        # Grid config: 2 columns, equal weights, so 50/50 split
+        self.scan_frame.columnconfigure(0, weight=1)
+        self.scan_frame.columnconfigure(1, weight=1)
+        self.scan_frame.rowconfigure(0, weight=1)
 
-        self.right_frame = tk.Frame(self.scan_frame, width=self.img_max_w, height=self.img_max_h)
-        self.right_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=10, pady=10)
-        self.right_frame.pack_propagate(False)
+        # LEFT and RIGHT frames
+        self.left_frame = tk.Frame(self.scan_frame)
+        self.left_frame.grid(
+            row=0,
+            column=0,
+            sticky="nsew",
+            padx=10,
+            pady=10,
+        )
+
+        self.right_frame = tk.Frame(self.scan_frame)
+        self.right_frame.grid(
+            row=0,
+            column=1,
+            sticky="nsew",
+            padx=10,
+            pady=10,
+        )
 
         # ---------------------------
         # LEFT SIDE (labels + barcode)
         # ---------------------------
 
-        # Title (smaller font)
+        # Smaller title, wrapped so it never forces left side wider than 50%
         self.item_name_label = tk.Label(
             self.left_frame,
             text="Scan an item to begin",
             font=("Arial", 18, "bold"),
+            wraplength=self.title_wrap,
+            justify="left",
         )
         self.item_name_label.pack(anchor="w", pady=(0, 5))
 
@@ -204,7 +226,7 @@ class KidScannerApp:
         self.barcode_entry = tk.Entry(
             self.left_frame,
             font=("Arial", 16),
-            width=24
+            width=24,
         )
         self.barcode_entry.pack(anchor="w", pady=(0, 10))
         self.barcode_entry.bind("<Return>", self._on_barcode_entered)
@@ -213,7 +235,7 @@ class KidScannerApp:
         self.last_barcode_label = tk.Label(
             self.left_frame,
             text="",
-            font=("Arial", 10)
+            font=("Arial", 10),
         )
         self.last_barcode_label.pack(anchor="w", pady=5)
 
@@ -225,7 +247,7 @@ class KidScannerApp:
         )
         desc_label.pack(anchor="w")
 
-        # Description text box with scrollbar
+        # Description text box with vertical scrollbar
         desc_frame = tk.Frame(self.left_frame)
         desc_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
 
@@ -241,7 +263,7 @@ class KidScannerApp:
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         self.item_desc_text.configure(yscrollcommand=scrollbar.set)
 
-        # Buttons section
+        # Buttons
         btn_frame = tk.Frame(self.left_frame)
         btn_frame.pack(pady=10)
 
@@ -275,8 +297,6 @@ class KidScannerApp:
         self.item_image_label = tk.Label(
             self.right_frame,
             bg="#dddddd",
-            width=400,
-            height=300,
         )
         self.item_image_label.pack(fill=tk.BOTH, expand=True)
 
@@ -627,7 +647,16 @@ class KidScannerApp:
 
         try:
             img = Image.open(path)
-            img.thumbnail((self.img_max_w, self.img_max_h))
+
+            # Use the actual size of the right panel if available
+            self.right_frame.update_idletasks()
+            frame_w = self.right_frame.winfo_width() or self.img_max_w
+            frame_h = self.right_frame.winfo_height() or self.img_max_h
+
+            max_w = max(50, frame_w - 20)
+            max_h = max(50, frame_h - 20)
+
+            img.thumbnail((max_w, max_h))
             self.current_image_tk = ImageTk.PhotoImage(img)
             self.item_image_label.config(image=self.current_image_tk)
         except Exception as exc:
