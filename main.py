@@ -169,77 +169,84 @@ class KidScannerApp:
     # ------------------------------------------------------------------
 
     def _build_scan_view(self) -> None:
-        """Build the main scan/kiosk view."""
+        """Build the main scan/kiosk view with left controls and right image."""
         self.scan_frame = tk.Frame(self.root)
         self.scan_frame.pack(fill=tk.BOTH, expand=True)
 
-        # --- IMAGE AREA ---------------------------------------------------
-        # Use dynamic size based on screen
-        self.image_frame = tk.Frame(
-            self.scan_frame,
-            width=self.img_max_w,
-            height=self.img_max_h,
-        )
-        self.image_frame.pack(pady=5)
-        self.image_frame.pack_propagate(False)
+        # Create two main panels: LEFT (controls) and RIGHT (image)
+        self.left_frame = tk.Frame(self.scan_frame)
+        self.left_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=10, pady=10)
 
-        self.item_image_label = tk.Label(
-            self.image_frame,
-            bg="#dddddd",
-        )
-        self.item_image_label.pack(expand=True, fill=tk.BOTH)
+        self.right_frame = tk.Frame(self.scan_frame, width=self.img_max_w, height=self.img_max_h)
+        self.right_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=10, pady=10)
+        self.right_frame.pack_propagate(False)
 
-        # --- ITEM TEXT ----------------------------------------------------
+        # ---------------------------
+        # LEFT SIDE (labels + barcode)
+        # ---------------------------
+
+        # Title (smaller font)
         self.item_name_label = tk.Label(
-            self.scan_frame,
+            self.left_frame,
             text="Scan an item to begin",
-            font=("Arial", 26, "bold"),
+            font=("Arial", 18, "bold"),
         )
-        self.item_name_label.pack(pady=5)
+        self.item_name_label.pack(anchor="w", pady=(0, 5))
 
-        self.item_desc_label = tk.Label(
-            self.scan_frame,
-            text="",
-            font=("Arial", 14),
-            wraplength=700,
-            justify=tk.CENTER,
-        )
-        self.item_desc_label.pack(pady=5)
-
-        # --- UPC ENTRY + LABEL --------------------------------------------
-        upc_frame = tk.Frame(self.scan_frame)
-        upc_frame.pack(pady=5)
-
+        # Barcode label + entry
         upc_label = tk.Label(
-            upc_frame,
+            self.left_frame,
             text="UPC / Barcode:",
             font=("Arial", 12, "bold"),
         )
-        upc_label.grid(row=0, column=0, padx=5)
+        upc_label.pack(anchor="w")
 
-        # Wide entry so you can see the full UPC
         self.barcode_entry = tk.Entry(
-            upc_frame,
-            width=24,
+            self.left_frame,
             font=("Arial", 16),
+            width=24
         )
-        self.barcode_entry.grid(row=0, column=1, padx=5)
+        self.barcode_entry.pack(anchor="w", pady=(0, 10))
         self.barcode_entry.bind("<Return>", self._on_barcode_entered)
 
-        # Last scanned barcode (read-only display)
+        # Last scanned label
         self.last_barcode_label = tk.Label(
-            self.scan_frame,
+            self.left_frame,
             text="",
-            font=("Arial", 10),
+            font=("Arial", 10)
         )
-        self.last_barcode_label.pack(pady=2)
+        self.last_barcode_label.pack(anchor="w", pady=5)
 
-        # --- BUTTONS ------------------------------------------------------
-        buttons_frame = tk.Frame(self.scan_frame)
-        buttons_frame.pack(pady=10)
+        # Description label
+        desc_label = tk.Label(
+            self.left_frame,
+            text="Description:",
+            font=("Arial", 12, "bold"),
+        )
+        desc_label.pack(anchor="w")
+
+        # Description text box with scrollbar
+        desc_frame = tk.Frame(self.left_frame)
+        desc_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
+
+        self.item_desc_text = tk.Text(
+            desc_frame,
+            height=8,
+            wrap=tk.WORD,
+            font=("Arial", 12),
+        )
+        self.item_desc_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        scrollbar = tk.Scrollbar(desc_frame, command=self.item_desc_text.yview)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        self.item_desc_text.configure(yscrollcommand=scrollbar.set)
+
+        # Buttons section
+        btn_frame = tk.Frame(self.left_frame)
+        btn_frame.pack(pady=10)
 
         add_button = tk.Button(
-            buttons_frame,
+            btn_frame,
             text="Add Item Manually",
             font=("Arial", 12, "bold"),
             command=self.show_add_item_view_with_current_barcode,
@@ -247,7 +254,7 @@ class KidScannerApp:
         add_button.grid(row=0, column=0, padx=5)
 
         clear_button = tk.Button(
-            buttons_frame,
+            btn_frame,
             text="Clear",
             font=("Arial", 12),
             command=self._clear_display,
@@ -255,14 +262,25 @@ class KidScannerApp:
         clear_button.grid(row=0, column=1, padx=5)
 
         fullscreen_button = tk.Button(
-            buttons_frame,
+            btn_frame,
             text="Toggle Fullscreen",
             font=("Arial", 12),
             command=self._toggle_fullscreen_btn,
         )
         fullscreen_button.grid(row=0, column=2, padx=5)
 
-        # Start with a visible "no image" placeholder
+        # ---------------------------
+        # RIGHT SIDE (image)
+        # ---------------------------
+        self.item_image_label = tk.Label(
+            self.right_frame,
+            bg="#dddddd",
+            width=400,
+            height=300,
+        )
+        self.item_image_label.pack(fill=tk.BOTH, expand=True)
+
+        # Default image
         self._show_image(NO_IMAGE_IMAGE)
 
     def _build_add_item_view(self) -> None:
@@ -597,40 +615,30 @@ class KidScannerApp:
         image_path = item.get("image_path") or PLACEHOLDER_IMAGE
 
         self.item_name_label.config(text=name)
-        self.item_desc_label.config(text=description)
+        self.item_desc_text.delete("1.0", tk.END)
+        self.item_desc_text.insert("1.0", description)
+
         self._show_image(image_path)
 
     def _show_image(self, path: str) -> None:
-        """
-        Load and display an image.
-
-        Falls back to the 'no image' placeholder if anything goes wrong.
-        """
+        """Load and display an image scaled to the right panel."""
         if not os.path.isfile(path):
             path = NO_IMAGE_IMAGE
 
-        if not os.path.isfile(path):
-            self.item_image_label.config(image="")
-            self.current_image_tk = None
-            return
-
         try:
             img = Image.open(path)
-
-            # NEW: scale to fit in dynamic area
             img.thumbnail((self.img_max_w, self.img_max_h))
-
             self.current_image_tk = ImageTk.PhotoImage(img)
             self.item_image_label.config(image=self.current_image_tk)
-        except Exception as exc:  # noqa: BLE001
-            print(f"Failed to load image '{path}': {exc}")
-            self.item_image_tk = None
+        except Exception as exc:
+            print(f"Failed to load image: {exc}")
             self.item_image_label.config(image="")
+            self.current_image_tk = None
 
     def _clear_display(self) -> None:
         """Reset the scan view to the default message and image."""
         self.item_name_label.config(text="Scan an item to begin")
-        self.item_desc_label.config(text="")
+        self.item_desc_text.delete("1.0", tk.END)
         self.last_barcode_label.config(text="")
         self._show_image(PLACEHOLDER_IMAGE)
 
