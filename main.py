@@ -206,10 +206,10 @@ class KidScannerApp:
         )
         upc_label.grid(row=0, column=0, padx=5)
 
-        # Make the entry wide enough to show the full code
+        # Wide entry so you can see the full UPC
         self.barcode_entry = tk.Entry(
             upc_frame,
-            width=24,  # shows full UPC comfortably
+            width=24,
             font=("Arial", 16),
         )
         self.barcode_entry.grid(row=0, column=1, padx=5)
@@ -593,13 +593,13 @@ class KidScannerApp:
         """
         Load and display an image.
 
-        Falls back to the placeholder image if anything goes wrong.
+        Falls back to the 'no image' placeholder if anything goes wrong.
         """
         if not os.path.isfile(path):
-            path = PLACEHOLDER_IMAGE
+            path = NO_IMAGE_IMAGE
 
         if not os.path.isfile(path):
-            # No valid image at all; clear the label.
+            # Still nothing? Clear the label but keep gray background.
             self.item_image_label.config(image="")
             self.current_image_tk = None
             return
