@@ -147,6 +147,13 @@ class KidScannerApp:
         self.root.bind("<F11>", self._toggle_fullscreen)
         self.root.bind("<Escape>", self._exit_fullscreen)
 
+        # NEW: scale image area based on screen size
+        screen_w = self.root.winfo_screenwidth()
+        screen_h = self.root.winfo_screenheight()
+
+        # Use up to 80% of width, 40% of height for the image
+        self.img_max_w = int(screen_w * 0.8)
+        self.img_max_h = int(screen_h * 0.4)
         # Build the two main views.
         self._build_scan_view()
         self._build_add_item_view()
@@ -167,14 +174,18 @@ class KidScannerApp:
         self.scan_frame.pack(fill=tk.BOTH, expand=True)
 
         # --- IMAGE AREA ---------------------------------------------------
-        # Fixed-size frame so there's always a visible "picture spot"
-        self.image_frame = tk.Frame(self.scan_frame, width=600, height=320)
-        self.image_frame.pack(pady=10)
-        self.image_frame.pack_propagate(False)  # keep the frame size
+        # Use dynamic size based on screen
+        self.image_frame = tk.Frame(
+            self.scan_frame,
+            width=self.img_max_w,
+            height=self.img_max_h,
+        )
+        self.image_frame.pack(pady=5)
+        self.image_frame.pack_propagate(False)
 
         self.item_image_label = tk.Label(
             self.image_frame,
-            bg="#dddddd",  # light gray background so it's obvious
+            bg="#dddddd",
         )
         self.item_image_label.pack(expand=True, fill=tk.BOTH)
 
@@ -599,20 +610,22 @@ class KidScannerApp:
             path = NO_IMAGE_IMAGE
 
         if not os.path.isfile(path):
-            # Still nothing? Clear the label but keep gray background.
             self.item_image_label.config(image="")
             self.current_image_tk = None
             return
 
         try:
             img = Image.open(path)
-            img.thumbnail((600, 320))
+
+            # NEW: scale to fit in dynamic area
+            img.thumbnail((self.img_max_w, self.img_max_h))
+
             self.current_image_tk = ImageTk.PhotoImage(img)
             self.item_image_label.config(image=self.current_image_tk)
         except Exception as exc:  # noqa: BLE001
             print(f"Failed to load image '{path}': {exc}")
+            self.item_image_tk = None
             self.item_image_label.config(image="")
-            self.current_image_tk = None
 
     def _clear_display(self) -> None:
         """Reset the scan view to the default message and image."""
